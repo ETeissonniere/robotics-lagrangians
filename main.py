@@ -1,168 +1,158 @@
 import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.widgets import Slider
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.widgets import Slider, Button
 
-# Set clean styling
-plt.style.use('default')
-plt.rcParams['font.family'] = 'Arial'
-plt.rcParams['font.size'] = 10
+from src.kinematics import setup_plot_axes, create_visualization_elements
+from src.dynamics import run_dynamics_simulation
+from src.parameters import Parameters
+from src.simulation import RobotArmAnimation
 
-# Initialize parameters
-L1 = 2.0  # Length of first link
-L2 = 1.5  # Length of second link
-theta1 = 0.0  # First joint angle (radians)
-theta2 = 0.0  # Second joint angle (radians)
+def main():
+    # Set plot style
+    plt.style.use('default')
+    plt.rcParams['font.family'] = 'Arial'
+    plt.rcParams['font.size'] = 10
 
-# Clean color scheme
-COLORS = {
-    'link1': '#2E86AB',
-    'link2': '#A23B72',
-    'base': '#F18F01',
-    'joint': '#C73E1D',
-    'end_effector': '#F18F01'
-}
+    # Create parameter manager
+    params = Parameters()
 
-# Create figure
-fig = plt.figure(figsize=(12, 9), facecolor='white')
-ax = fig.add_subplot(111, projection='3d')
+    # Create figure and 3D axes
+    fig = plt.figure(figsize=(15, 8))
 
-def forward_kinematics(th1, th2, l1, l2):
-    base = np.array([0, 0, 0])
-    joint1 = np.array([l1 * np.cos(th1), l1 * np.sin(th1), 0])
-    end_effector = np.array([
-        l1 * np.cos(th1) + l2 * np.cos(th1 + th2),
-        l1 * np.sin(th1) + l2 * np.sin(th1 + th2),
-        0
-    ])
-    return base, joint1, end_effector
+    # Create grid for subplots
+    gs = plt.GridSpec(1, 2, width_ratios=[2, 1], figure=fig)
 
-def update_arm():
-    ax.clear()
+    # Create 3D axes for animation
+    ax = fig.add_subplot(gs[0], projection='3d')
 
-    # Calculate positions
-    base, joint1, end_effector = forward_kinematics(theta1, theta2, L1, L2)
+    # Create text axes for parameter explanation
+    ax_text = fig.add_subplot(gs[1])
+    ax_text.axis('off')
 
-    # Plot arm links
-    ax.plot([base[0], joint1[0]], [base[1], joint1[1]], [base[2], joint1[2]],
-            color=COLORS['link1'], linewidth=10, solid_capstyle='round', label='Link 1')
+    # Add parameter explanation
+    explanation = """
+    3D Two-Link Robot Arm Parameters:
 
-    ax.plot([joint1[0], end_effector[0]], [joint1[1], end_effector[1]], [joint1[2], end_effector[2]],
-            color=COLORS['link2'], linewidth=10, solid_capstyle='round', label='Link 2')
+    Physical Parameters:
+    • L1, L2: Lengths of links 1 and 2 (meters)
+        - Determines the arm's reach and workspace
 
-    # Plot joints
-    ax.scatter(*base, color=COLORS['base'], s=300, alpha=0.9, edgecolors='white', linewidth=3)
-    ax.scatter(*joint1, color=COLORS['joint'], s=200, alpha=0.9, edgecolors='white', linewidth=2)
-    ax.scatter(*end_effector, color=COLORS['end_effector'], s=200, alpha=0.9, edgecolors='white', linewidth=2)
+    • m1, m2: Masses of links 1 and 2 (kg)
+        - Affects the arm's inertia and dynamics
 
-    # Set axis properties
-    max_reach = L1 + L2
-    margin = 0.3
-    ax.set_xlim([-max_reach-margin, max_reach+margin])
-    ax.set_ylim([-max_reach-margin, max_reach+margin])
-    ax.set_zlim([-0.5, 0.5])
+    • g: Gravitational acceleration (m/s²)
+        - Points in negative Z direction (downward)
+        - Earth's gravity = 9.81 m/s²
 
-    # Clean axis labels
-    ax.set_xlabel('X', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Y', fontsize=12, fontweight='bold')
-    ax.set_zlabel('Z', fontsize=12, fontweight='bold')
+    • tau1, tau2: Joint torques (N⋅m)
+        - τ1: Controls rotation around Z-axis
+        - τ2: Controls rotation around link 1's X-axis
+        - Positive = counterclockwise around axis
 
-    # Clean grid
-    ax.grid(True, alpha=0.2)
-    ax.xaxis.pane.fill = False
-    ax.yaxis.pane.fill = False
-    ax.zaxis.pane.fill = False
-    ax.xaxis.pane.set_edgecolor('gray')
-    ax.yaxis.pane.set_edgecolor('gray')
-    ax.zaxis.pane.set_edgecolor('gray')
-    ax.xaxis.pane.set_alpha(0.1)
-    ax.yaxis.pane.set_alpha(0.1)
-    ax.zaxis.pane.set_alpha(0.1)
+    Initial Conditions:
+    • theta1_0, theta2_0: Initial joint angles (rad)
+        - θ1: Angle around Z-axis (base rotation)
+        - θ2: Angle around link 1's X-axis (elevation)
 
-    # Set title
-    ax.set_title('2DoF Robotic Arm', fontsize=16, fontweight='bold', pad=20)
+    • omega1_0, omega2_0: Initial angular velocities (rad/s)
+        - ω1: Base joint angular velocity
+        - ω2: Elevation joint angular velocity
 
-    # Set viewing angle
-    ax.view_init(elev=15, azim=45)
+    Joint Configuration:
+    - Joint 1 (Base): Rotates in XY plane
+    - Joint 2 (Elbow): Creates up/down motion
 
-# Initial plot
-update_arm()
+    Coordinate System:
+    - Origin at base of the arm
+    - Z-axis: vertical (up)
+    - XY-plane: horizontal
+    - Gravity: -Z direction
+    """
 
-# Create clean sliders
-plt.subplots_adjust(bottom=0.25)
+    ax_text.text(0, 0.95, explanation,
+                transform=ax_text.transAxes,
+                verticalalignment='top',
+                fontsize=10,
+                fontfamily='monospace',
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
 
-# Slider properties
-slider_props = dict(facecolor=COLORS['link1'], alpha=0.6)
+    # Set up plot axes and create visualization elements
+    setup_plot_axes(ax, params.params['L1'], params.params['L2'])
+    plot_elements = create_visualization_elements(ax)
 
-# Joint angle sliders
-ax_theta1 = plt.axes([0.15, 0.15, 0.7, 0.03])
-slider_theta1 = Slider(ax_theta1, 'θ1', -np.pi, np.pi, valinit=theta1,
-                       valfmt='%.2f rad', **slider_props)
+    # Create animation manager
+    animation = RobotArmAnimation(fig, ax, plot_elements)
 
-ax_theta2 = plt.axes([0.15, 0.10, 0.7, 0.03])
-slider_theta2 = Slider(ax_theta2, 'θ2', -np.pi, np.pi, valinit=theta2,
-                       valfmt='%.2f rad', **slider_props)
+    # Add parameter sliders
+    slider_ax_y = 0.02  # Starting y position for sliders
+    slider_height = 0.02
+    slider_spacing = 0.03
 
-# Link length sliders
-ax_l1 = plt.axes([0.15, 0.05, 0.3, 0.03])
-slider_l1 = Slider(ax_l1, 'L1', 0.5, 3.0, valinit=L1,
-                   valfmt='%.1f', **slider_props)
+    # Create slider axes
+    slider_axes = {}
+    for i, (param, limits) in enumerate(params.PARAM_LIMITS.items()):
+        y_pos = slider_ax_y + i * slider_spacing
+        ax_pos = plt.axes([0.1, y_pos, 0.3, slider_height])
+        slider_axes[param] = ax_pos
 
-ax_l2 = plt.axes([0.55, 0.05, 0.3, 0.03])
-slider_l2 = Slider(ax_l2, 'L2', 0.5, 3.0, valinit=L2,
-                   valfmt='%.1f', **slider_props)
+    # Create sliders
+    sliders = {}
+    for param, ax in slider_axes.items():
+        min_val, max_val = params.PARAM_LIMITS[param]
 
-# Update functions
-def update_theta1(val):
-    global theta1
-    theta1 = slider_theta1.val
-    update_arm()
-    update_info()
-    plt.draw()
+        # Get initial value from parameters
+        if param in params.params:
+            initial_val = params.params[param]
+        else:
+            initial_val = params.initial_conditions[param]
 
-def update_theta2(val):
-    global theta2
-    theta2 = slider_theta2.val
-    update_arm()
-    update_info()
-    plt.draw()
+        slider = Slider(
+            ax, param,
+            min_val, max_val,
+            valinit=initial_val
+        )
+        sliders[param] = slider
 
-def update_l1(val):
-    global L1
-    L1 = slider_l1.val
-    update_arm()
-    update_info()
-    plt.draw()
+        # Create update function for this parameter
+        def make_update_func(param_name):
+            def update(val):
+                params.update_param(param_name, val)
+                if param_name in ['L1', 'L2']:
+                    setup_plot_axes(ax, params.params['L1'], params.params['L2'])
+                    animation.init_animation()
+                    fig.canvas.draw_idle()
+            return update
 
-def update_l2(val):
-    global L2
-    L2 = slider_l2.val
-    update_arm()
-    update_info()
-    plt.draw()
+        slider.on_changed(make_update_func(param))
 
-# Connect sliders
-slider_theta1.on_changed(update_theta1)
-slider_theta2.on_changed(update_theta2)
-slider_l1.on_changed(update_l1)
-slider_l2.on_changed(update_l2)
+    # Add simulation control button
+    button_ax = plt.axes([0.8, 0.02, 0.1, 0.04])
+    sim_button = Button(button_ax, 'Simulate')
 
-# Simple info display
-def update_info():
-    _, _, end_effector = forward_kinematics(theta1, theta2, L1, L2)
+    def run_simulation(event):
+        # Get current simulation parameters
+        sim_params = params.sim_params
+        physical_params = params.params
+        initial_state = params.get_initial_state_vector()
 
-    info_text = f"End Effector Position: ({end_effector[0]:.2f}, {end_effector[1]:.2f}, {end_effector[2]:.2f})"
+        # Run simulation
+        solution = run_dynamics_simulation(
+            initial_state,
+            physical_params,
+            (sim_params['t_start'], sim_params['t_end']),
+            sim_params['dt']
+        )
 
-    # Update or create info text
-    if hasattr(update_info, 'text_obj'):
-        update_info.text_obj.set_text(info_text)
-    else:
-        update_info.text_obj = plt.figtext(0.5, 0.02, info_text, ha='center',
-                                          fontsize=11, bbox=dict(boxstyle="round,pad=0.3",
-                                          facecolor='lightgray', alpha=0.8))
+        if solution.success:
+            # Start animation with new solution
+            animation.start_animation(solution, physical_params, sim_params['dt'])
 
-# Initial info update
-update_info()
+    sim_button.on_clicked(run_simulation)
 
-plt.tight_layout()
-plt.show()
+    # Adjust subplot parameters to make room for sliders
+    plt.subplots_adjust(left=0.1, bottom=0.4)
+
+    # Display the plot
+    plt.show()
+
+if __name__ == "__main__":
+    main()
