@@ -1,4 +1,4 @@
-![demo](./media/example.gif)
+![demo](./assets/example.gif)
 
 # Playing with Lagrangians for 2 DoF arm
 
