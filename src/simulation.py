@@ -8,16 +8,16 @@ class RobotArmAnimation:
         self.ax = ax
         self.elements = plot_elements
         self.animation = None
-        self.ee_trace = {'x': [], 'y': [], 'z': []}
+        self.ee_trace = {'x': [], 'y': []}
 
     def init_animation(self):
         """Initialize animation elements."""
-        self.ee_trace = {'x': [], 'y': [], 'z': []}
+        self.ee_trace = {'x': [], 'y': []}
 
         # Reset all plot elements
-        self.elements['line_link1'].set_data_3d([], [], [])
-        self.elements['line_link2'].set_data_3d([], [], [])
-        self.elements['trace_line'].set_data_3d([], [], [])
+        self.elements['line_link1'].set_data([], [])
+        self.elements['line_link2'].set_data([], [])
+        self.elements['trace_line'].set_data([], [])
         self.elements['time_text'].set_text('')
 
         return tuple(self.elements.values())
@@ -36,25 +36,21 @@ class RobotArmAnimation:
         )
 
         # Update link positions
-        self.elements['line_link1'].set_data_3d(
+        self.elements['line_link1'].set_data(
             [base_pos[0], joint1_pos[0]],
-            [base_pos[1], joint1_pos[1]],
-            [base_pos[2], joint1_pos[2]]
+            [base_pos[1], joint1_pos[1]]
         )
-        self.elements['line_link2'].set_data_3d(
+        self.elements['line_link2'].set_data(
             [joint1_pos[0], ee_pos[0]],
-            [joint1_pos[1], ee_pos[1]],
-            [joint1_pos[2], ee_pos[2]]
+            [joint1_pos[1], ee_pos[1]]
         )
 
         # Update end-effector trace
         self.ee_trace['x'].append(ee_pos[0])
         self.ee_trace['y'].append(ee_pos[1])
-        self.ee_trace['z'].append(ee_pos[2])
-        self.elements['trace_line'].set_data_3d(
+        self.elements['trace_line'].set_data(
             self.ee_trace['x'],
-            self.ee_trace['y'],
-            self.ee_trace['z']
+            self.ee_trace['y']
         )
 
         # Update time display

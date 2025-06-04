@@ -21,8 +21,8 @@ def main():
     # Create grid for subplots
     gs = plt.GridSpec(1, 2, width_ratios=[2, 1], figure=fig)
 
-    # Create 3D axes for animation
-    ax = fig.add_subplot(gs[0], projection='3d')
+    # Create 2D axes for animation
+    ax = fig.add_subplot(gs[0])
 
     # Create text axes for parameter explanation
     ax_text = fig.add_subplot(gs[1])
@@ -30,7 +30,7 @@ def main():
 
     # Add parameter explanation
     explanation = """
-    3D Two-Link Robot Arm Parameters:
+    2D Two-Link Robot Arm Parameters:
 
     Physical Parameters:
     • L1, L2: Lengths of links 1 and 2 (meters)
@@ -40,32 +40,31 @@ def main():
         - Affects the arm's inertia and dynamics
 
     • g: Gravitational acceleration (m/s²)
-        - Points in negative Z direction (downward)
+        - Points in negative Y direction (downward)
         - Earth's gravity = 9.81 m/s²
 
     • tau1, tau2: Joint torques (N⋅m)
-        - τ1: Controls rotation around Z-axis
-        - τ2: Controls rotation around link 1's X-axis
-        - Positive = counterclockwise around axis
+        - τ1: Controls rotation of first link
+        - τ2: Controls rotation of second link
+        - Positive = counterclockwise
 
     Initial Conditions:
     • theta1_0, theta2_0: Initial joint angles (rad)
-        - θ1: Angle around Z-axis (base rotation)
-        - θ2: Angle around link 1's X-axis (elevation)
+        - θ1: Angle of first link from X-axis
+        - θ2: Relative angle between links
 
     • omega1_0, omega2_0: Initial angular velocities (rad/s)
-        - ω1: Base joint angular velocity
-        - ω2: Elevation joint angular velocity
+        - ω1: First link angular velocity
+        - ω2: Second link angular velocity
 
     Joint Configuration:
-    - Joint 1 (Base): Rotates in XY plane
-    - Joint 2 (Elbow): Creates up/down motion
+    - Joint 1 (Base): Anchored at origin
+    - Joint 2 (Elbow): Between links
 
     Coordinate System:
     - Origin at base of the arm
-    - Z-axis: vertical (up)
-    - XY-plane: horizontal
-    - Gravity: -Z direction
+    - Y-axis: vertical (gravity points down)
+    - X-axis: horizontal
     """
 
     ax_text.text(0, 0.95, explanation,
@@ -117,6 +116,7 @@ def main():
             def update(val):
                 params.update_param(param_name, val)
                 if param_name in ['L1', 'L2']:
+                    # Update axes limits based on new arm lengths
                     setup_plot_axes(ax, params.params['L1'], params.params['L2'])
                     animation.init_animation()
                     fig.canvas.draw_idle()

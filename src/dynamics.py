@@ -3,19 +3,18 @@ from scipy.integrate import solve_ivp
 
 def dynamics_ode_function(t, y, L1, L2, m1, m2, g, tau1, tau2, eom_numerical_function=None):
     """
-    Defines the system of first-order ODEs for the 3D two-link arm.
+    Defines the system of first-order ODEs for the 2D two-link arm.
     y = [theta1, theta2, omega1, omega2]
     Returns dy/dt = [omega1, omega2, alpha1, alpha2]
     
     Joint configuration:
-    - First joint (theta1): Rotates around the Z-axis
-    - Second joint (theta2): Rotates around the X-axis of the first link's frame
+    - First joint (theta1): Angle from X-axis
+    - Second joint (theta2): Relative angle between links
     
     Coordinate system:
     - Origin at base of arm
-    - Z is up (gravity in -Z)
-    - First joint creates motion in XY plane
-    - Second joint creates motion in YZ plane of link 1's frame
+    - X-axis horizontal
+    - Y-axis vertical (gravity in -Y)
     """
     th1, th2, om1, om2 = y
 
@@ -27,24 +26,24 @@ def dynamics_ode_function(t, y, L1, L2, m1, m2, g, tau1, tau2, eom_numerical_fun
             tau1, tau2
         )
     else:
-        # Placeholder dynamics for 3D motion
-        # This is a simplified model that doesn't account for full coupling
-        print("Warning: Using placeholder dynamics!")
+        # Planar dynamics for 2D motion
+        print("Using 2D planar dynamics")
         
-        # For joint 1 (base rotation):
-        # - Affected by gravity projection onto rotation plane
-        # - Gravity effect depends on both joint angles
-        g_torque1 = g * np.sin(th2) * (
-            m1 * L1/2 * np.sin(th1) +
-            m2 * (L1 * np.sin(th1) + L2/2 * np.sin(th1))
+        # For joint 1:
+        # - Gravity torque depends on total configuration
+        # - For -Y gravity, when link points:
+        #   * right (0°): + torque (falls counterclockwise)
+        #   * up (90°): + torque (falls counterclockwise)
+        #   * left (180°): + torque (falls counterclockwise)
+        #   * down (270°): - torque (falls clockwise)
+        g_torque1 = g * (
+            m1 * L1/2 * np.cos(th1) +
+            m2 * (L1 * np.cos(th1) + L2/2 * np.cos(th1 + th2))
         )
         
-        # For joint 2 (elevation):
-        # - Directly affected by gravity in Z direction
-        # - Also affected by centripetal forces from joint 1's rotation
-        g_torque2 = g * (
-            m2 * L2/2 * np.cos(th2)
-        )
+        # For joint 2:
+        # - Gravity torque depends on second link angle relative to first
+        g_torque2 = g * m2 * L2/2 * np.cos(th1 + th2)
         
         # Simplified inertia terms
         I1 = m1 * L1**2 + m2 * (L1**2 + L2**2)
@@ -93,15 +92,15 @@ def run_dynamics_simulation(initial_conditions, params, t_span, dt):
 def derive_equations_of_motion():
     """
     This function will contain the symbolic derivation of the equations of motion
-    using Lagrangian mechanics. For the 3D two-link arm:
+    using Lagrangian mechanics. For the 2D two-link arm:
     
     1. Define symbolic variables for states and parameters
     2. Form the Lagrangian L = T - V where:
-       T = Kinetic energy of both links (including rotational energy)
-       V = Potential energy in gravity field (in -Z direction)
+       T = Kinetic energy of both links (translational and rotational)
+       V = Potential energy in gravity field (in -Y direction)
     3. Account for:
-       - First joint rotation around Z
-       - Second joint rotation around link 1's X axis
+       - First joint angle from X-axis
+       - Second joint angle relative to first link
        - Full coupling between joints
        - Centripetal and Coriolis effects
     4. Apply Lagrange's equations
