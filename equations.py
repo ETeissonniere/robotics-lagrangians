@@ -12,8 +12,8 @@ theta1, theta2 = dynamicsymbols('theta1 theta2')
 # to make the center of mass formulas cleaner
 x1 = l1 * cos(theta1)
 y1 = l1 * sin(theta1)
-# x2 = x1 + l2 * cos(theta1 + theta2)
-# y2 = y1 + l2 * sin(theta1 + theta2)
+x2 = x1 + l2 * cos(theta1 + theta2)
+y2 = y1 + l2 * sin(theta1 + theta2)
 
 # We need to know the center of mass of each link for the equations later,
 # for simplicity we assume the center of mass is at the midpoint of each link
@@ -57,6 +57,11 @@ LM = LagrangesMethod(L, [theta1, theta2])
 eqns = LM.form_lagranges_equations()
 
 # As of now the equations cannot be used for math, we need to lambdify them
-params = [m1, m2, l1, l2, i1, i2, g, theta1, theta1d, theta1dd, theta2, theta2d, theta2dd]
-theta1_lambda = lambdify(params, eqns[0])
-theta2_lambda = lambdify(params, eqns[1])
+theta_params = [m1, m2, l1, l2, i1, i2, g, theta1, theta1d, theta1dd, theta2, theta2d, theta2dd]
+theta1_lambda = lambdify(theta_params, eqns[0])
+theta2_lambda = lambdify(theta_params, eqns[1])
+
+# These are used for forward kinematics when doing visualization
+ee_params = [l1, l2, theta1, theta2]
+eex_lambda = lambdify(ee_params, x2)
+eey_lambda = lambdify(ee_params, y2)
